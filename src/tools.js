@@ -108,6 +108,11 @@ export async function executeTool(name, args, env) {
 // ---------------------------------------------------------------------------
 
 async function findLunchPlaces({ query, open_now = false }, env) {
+  if (!env.GOOGLE_PLACES_API_KEY) {
+    console.error("GOOGLE_PLACES_API_KEY is not set");
+    return { error: "Places search is not configured" };
+  }
+
   const centre = CT_HUB_2;
 
   const body = {

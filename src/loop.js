@@ -11,7 +11,6 @@ const MAX_TOOL_CALLS_PER_ROUND = 4;
 // Stop starting new rounds after this long, so one chat cannot run for minutes.
 const TURN_DEADLINE_MS = 45_000;
 
-const FALLBACK_REPLY = "Just go Berseh Food Centre lah.";
 const GIVE_UP_REPLY = "Uncle tried too many times already. Ask something simpler.";
 const EMPTY_REPLY = "Uncle blur for a moment. Ask again lah.";
 
@@ -25,14 +24,6 @@ const EMPTY_REPLY = "Uncle blur for a moment. Ask again lah.";
  * turn (user, assistant, tool) for the client to send back as history.
  */
 export async function runLoop(history, message, env) {
-  // If the Places key is missing, Uncle cannot search, so give a safe answer.
-  if (!env.GOOGLE_PLACES_API_KEY) {
-    return finish(FALLBACK_REPLY, [
-      { role: "user", content: message },
-      { role: "assistant", content: FALLBACK_REPLY },
-    ]);
-  }
-
   const messages = [
     { role: "system", content: buildSystemPrompt() },
     ...history,
