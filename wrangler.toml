@@ -11,3 +11,10 @@ fallthrough = false
 # Secrets (OPENCODE_API_KEY, GOOGLE_PLACES_API_KEY) are set with
 # `wrangler secret put` for deploys and `.env` for local development.
 # Never put them in this file.
+
+# Per-IP rate limit for POST /chat, checked in src/limits.js. The namespace_id
+# is any number that is unique within your Cloudflare account.
+[[ratelimits]]
+name = "CHAT_LIMITER"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }

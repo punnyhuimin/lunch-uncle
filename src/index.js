@@ -1,5 +1,6 @@
 import ui from "./ui.html";
 import { runLoop } from "./loop.js";
+import { isRateLimited } from "./limits.js";
 import { validateHistory, MAX_MESSAGE_CHARS } from "./history.js";
 
 export default {
@@ -21,6 +22,16 @@ export default {
 };
 
 async function handleChat(request, env) {
+  if (await isRateLimited(env, request)) {
+    return new Response(
+      JSON.stringify({ error: "Too many requests. Slow down lah." }),
+      {
+        status: 429,
+        headers: { "content-type": "application/json", "retry-after": "60" },
+      },
+    );
+  }
+
   let body;
   try {
     body = await request.json();
