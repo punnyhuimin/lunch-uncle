@@ -147,14 +147,24 @@ async function findLunchPlaces({ query, open_now = false }, env) {
 
 /**
  * Shape Places API results into the fields Uncle needs.
+ *
+ * locationBias is only a preference, so Places can return spots far away.
+ * Drop anything beyond maxDistance and list the nearest first. A place with
+ * no location cannot be measured, so it goes last.
  */
-export function formatPlaces(places, origin) {
-  return places.map(({ displayName, rating, location, currentOpeningHours }) => ({
-    name: displayName?.text ?? "Unnamed",
-    rating: rating ?? null,
-    distance_m: location ? Math.round(haversineMetres(origin, location)) : null,
-    open_now: currentOpeningHours?.openNow ?? null,
-  }));
+export function formatPlaces(places, origin, maxDistance = SEARCH_RADIUS_METRES) {
+  return places
+    .map(({ displayName, rating, location, currentOpeningHours }) => ({
+      name: displayName?.text ?? "Unnamed",
+      rating: rating ?? null,
+      distance_m: location ? Math.round(haversineMetres(origin, location)) : null,
+      open_now: currentOpeningHours?.openNow ?? null,
+    }))
+    .filter((p) => p.distance_m === null || p.distance_m <= maxDistance)
+    .sort(
+      (a, b) =>
+        (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity),
+    );
 }
 
 /**
@@ -188,15 +198,23 @@ async function getRainForecast() {
 /**
  * Pull one area's forecast out of the data.gov.sg two-hour forecast payload.
  */
-export function formatForecast(payload, area) {
+export function formatForecast(payload, area, now = new Date()) {
   const item = payload?.data?.items?.[0];
   if (!item) {
     return { error: "No forecast available" };
   }
+  const end = Date.parse(item.valid_period?.end);
+  if (!Number.isNaN(end) && end < now.getTime()) {
+    return { error: "Forecast is out of date" };
+  }
   const entry = item.forecasts?.find((f) => f.area === area);
+  if (!entry?.forecast) {
+    // Do not report "Unknown" as a forecast: the model may read it as no rain.
+    return { error: `No forecast for ${area}` };
+  }
   return {
     area,
-    forecast: entry?.forecast ?? "Unknown",
+    forecast: entry.forecast,
     valid_period: item.valid_period?.text ?? null,
   };
 }
@@ -205,7 +223,22 @@ export function formatForecast(payload, area) {
 // get_bus_arrivals
 // ---------------------------------------------------------------------------
 
+/**
+ * Bus stop codes are five digits and can start with 0. The model sometimes
+ * sends a number, which drops the zero, so pad short numeric codes.
+ * Returns null if the code cannot be a stop code.
+ */
+export function normaliseStopCode(raw) {
+  const text = String(raw ?? "").trim();
+  return /^\d{1,5}$/.test(text) ? text.padStart(5, "0") : null;
+}
+
 async function getBusArrivals({ stop_code }) {
+  const code = normaliseStopCode(stop_code);
+  if (!code) {
+    return { error: "stop_code must be a five-digit bus stop code" };
+  }
+  stop_code = code;
   const url = `${BUS_URL}?id=${encodeURIComponent(stop_code)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(TOOL_TIMEOUT_MS) });
   if (!res.ok) {

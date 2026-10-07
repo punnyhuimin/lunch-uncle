@@ -6,6 +6,8 @@ const LLM_BASE_URL = "https://opencode.ai/zen/go/v1";
 const LLM_MODEL = "glm-5.3-flash";
 
 const LLM_TIMEOUT_MS = 20_000;
+// Replies are capped at 120 words in the prompt; this stops a runaway answer.
+const MAX_OUTPUT_TOKENS = 400;
 const MAX_ROUNDS = 8;
 const MAX_TOOL_CALLS_PER_ROUND = 4;
 // Stop starting new rounds after this long, so one chat cannot run for minutes.
@@ -104,6 +106,7 @@ async function callModel(messages, env, sessionId) {
       model: LLM_MODEL,
       messages,
       tools: toolDefinitions,
+      max_tokens: MAX_OUTPUT_TOKENS,
     }),
     signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });

@@ -5,6 +5,7 @@ import {
   formatBusArrivals,
   formatPlaces,
   haversineMetres,
+  normaliseStopCode,
 } from "../src/tools.js";
 
 test("formatForecast picks the requested area", () => {
@@ -83,7 +84,59 @@ test("formatPlaces reports open_now from currentOpeningHours", () => {
 
 test("formatForecast does not throw when forecasts is missing", () => {
   const result = formatForecast({ data: { items: [{}] } }, "Kallang");
-  assert.equal(result.forecast, "Unknown");
+  assert.deepEqual(result, { error: "No forecast for Kallang" });
+});
+
+test("formatForecast errors instead of reporting Unknown for a missing area", () => {
+  const payload = {
+    data: { items: [{ forecasts: [{ area: "Geylang", forecast: "Fair" }] }] },
+  };
+  assert.deepEqual(formatForecast(payload, "Kallang"), {
+    error: "No forecast for Kallang",
+  });
+});
+
+test("formatForecast refuses a forecast whose valid period has ended", () => {
+  const payload = {
+    data: {
+      items: [
+        {
+          valid_period: { end: "2020-01-01T14:00:00+08:00" },
+          forecasts: [{ area: "Kallang", forecast: "Heavy Rain" }],
+        },
+      ],
+    },
+  };
+  assert.deepEqual(formatForecast(payload, "Kallang", new Date("2026-10-07T04:30:00Z")), {
+    error: "Forecast is out of date",
+  });
+});
+
+test("normaliseStopCode pads numbers and rejects non-codes", () => {
+  assert.equal(normaliseStopCode("07371"), "07371");
+  assert.equal(normaliseStopCode(7371), "07371");
+  assert.equal(normaliseStopCode(" 7371 "), "07371");
+  for (const bad of ["abc", "", "123456", undefined, null, "07 371"]) {
+    assert.equal(normaliseStopCode(bad), null, String(bad));
+  }
+});
+
+test("formatPlaces drops places beyond the radius and lists the nearest first", () => {
+  const origin = { latitude: 1.3115, longitude: 103.8615 };
+  const at = (name, dLat) => ({
+    displayName: { text: name },
+    location: { latitude: origin.latitude + dLat, longitude: origin.longitude },
+  });
+  const places = [
+    at("Far", 0.03), // about 3.3 km
+    at("Mid", 0.004), // about 440 m
+    { displayName: { text: "No Location" } },
+    at("Near", 0.001), // about 110 m
+  ];
+  assert.deepEqual(
+    formatPlaces(places, origin).map((p) => p.name),
+    ["Near", "Mid", "No Location"],
+  );
 });
 
 test("formatPlaces keeps a place that has no location", () => {

@@ -26,7 +26,27 @@ export function buildSystemPrompt() {
 /**
  * Per-turn context (current time). Send it after the history, not in the
  * system prompt, so the cacheable prefix stays identical between requests.
+ *
+ * The Worker runs in UTC but the user is in Singapore, so state the time in
+ * Singapore time. The model should not have to convert it.
  */
 export function buildTimeContext(now = new Date()) {
-  return `Current time: ${now.toISOString()}.`;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Singapore",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(now)
+      .map(({ type, value }) => [type, value]),
+  );
+  return (
+    `Current time: ${parts.weekday} ${parts.day} ${parts.month} ${parts.year}, ` +
+    `${parts.hour}:${parts.minute} Singapore time (UTC+8).`
+  );
 }
