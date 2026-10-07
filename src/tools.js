@@ -13,6 +13,8 @@ const SEARCH_RADIUS_METRES = 800;
 const MAX_PLACES = 10;
 const FORECAST_AREA = "Kallang";
 
+const TOOL_TIMEOUT_MS = 8_000;
+
 const PLACES_URL = "https://places.googleapis.com/v1/places:searchText";
 const FORECAST_URL =
   "https://api-open.data.gov.sg/v2/real-time/api/two-hr-forecast";
@@ -83,15 +85,21 @@ export const toolDefinitions = [
  * Run one tool call requested by the model and return the result as a string.
  */
 export async function executeTool(name, args, env) {
-  switch (name) {
-    case "find_lunch_places":
-      return JSON.stringify(await findLunchPlaces(args, env));
-    case "get_rain_forecast":
-      return JSON.stringify(await getRainForecast());
-    case "get_bus_arrivals":
-      return JSON.stringify(await getBusArrivals(args));
-    default:
-      return JSON.stringify({ error: `Unknown tool: ${name}` });
+  try {
+    switch (name) {
+      case "find_lunch_places":
+        return JSON.stringify(await findLunchPlaces(args, env));
+      case "get_rain_forecast":
+        return JSON.stringify(await getRainForecast());
+      case "get_bus_arrivals":
+        return JSON.stringify(await getBusArrivals(args));
+      default:
+        return JSON.stringify({ error: `Unknown tool: ${name}` });
+    }
+  } catch (err) {
+    // Network failure, timeout or bad payload: let the model tell the user.
+    console.error(`tool ${name} failed:`, err);
+    return JSON.stringify({ error: `${name} failed, try again or answer without it.` });
   }
 }
 
@@ -121,6 +129,7 @@ async function findLunchPlaces({ query, open_now = false }, env) {
         "places.id,places.displayName,places.location,places.rating,places.currentOpeningHours",
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(TOOL_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -138,7 +147,7 @@ export function formatPlaces(places, origin) {
   return places.map(({ displayName, rating, location, currentOpeningHours }) => ({
     name: displayName?.text ?? "Unnamed",
     rating: rating ?? null,
-    distance_m: Math.round(haversineMetres(origin, location)),
+    distance_m: location ? Math.round(haversineMetres(origin, location)) : null,
     open_now: currentOpeningHours?.openNow ?? null,
   }));
 }
@@ -164,7 +173,7 @@ export function haversineMetres(a, b) {
 // ---------------------------------------------------------------------------
 
 async function getRainForecast() {
-  const res = await fetch(FORECAST_URL);
+  const res = await fetch(FORECAST_URL, { signal: AbortSignal.timeout(TOOL_TIMEOUT_MS) });
   if (!res.ok) {
     return { error: `Forecast API returned ${res.status}` };
   }
@@ -179,7 +188,7 @@ export function formatForecast(payload, area) {
   if (!item) {
     return { error: "No forecast available" };
   }
-  const entry = item.forecasts.find((f) => f.area === area);
+  const entry = item.forecasts?.find((f) => f.area === area);
   return {
     area,
     forecast: entry?.forecast ?? "Unknown",
@@ -193,7 +202,7 @@ export function formatForecast(payload, area) {
 
 async function getBusArrivals({ stop_code }) {
   const url = `${BUS_URL}?id=${encodeURIComponent(stop_code)}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(TOOL_TIMEOUT_MS) });
   if (!res.ok) {
     return { error: `Bus API returned ${res.status}` };
   }
