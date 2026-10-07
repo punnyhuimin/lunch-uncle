@@ -1,4 +1,4 @@
-import { buildSystemPrompt } from "./prompt.js";
+import { buildSystemPrompt, buildTimeContext } from "./prompt.js";
 import { toolDefinitions, executeTool } from "./tools.js";
 
 // TODO: set the base URL and model for your OpenAI-compatible provider.
@@ -25,6 +25,7 @@ export async function runLoop(history, message, env) {
   const messages = [
     { role: "system", content: buildSystemPrompt() },
     ...history,
+    { role: "system", content: buildTimeContext() },
     { role: "user", content: message },
   ];
 

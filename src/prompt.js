@@ -17,10 +17,16 @@ How you work:
 - Keep replies under 120 words.`;
 
 /**
- * Build the system prompt for one request.
+ * Build the system prompt. Kept static so providers can cache the prefix.
  */
 export function buildSystemPrompt() {
-  const requestId = crypto.randomUUID();
-  const now = new Date().toISOString();
-  return `Request ${requestId} at ${now}. ${PERSONA}`;
+  return PERSONA;
+}
+
+/**
+ * Per-turn context (current time). Send it after the history, not in the
+ * system prompt, so the cacheable prefix stays identical between requests.
+ */
+export function buildTimeContext(now = new Date()) {
+  return `Current time: ${now.toISOString()}.`;
 }
