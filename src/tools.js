@@ -6,6 +6,8 @@
  * The format functions are the ones covered by tests.
  */
 
+import { cached, cacheKey, TTL_SECONDS } from "./cache.js";
+
 // CT Hub 2, 114 Lavender Street.
 export const CT_HUB_2 = { latitude: 1.3115, longitude: 103.8615 };
 
@@ -88,11 +90,27 @@ export async function executeTool(name, args, env) {
   try {
     switch (name) {
       case "find_lunch_places":
-        return JSON.stringify(await findLunchPlaces(args, env));
+        return JSON.stringify(
+          await cached(
+            cacheKey("places", [String(args.query ?? "").trim().toLowerCase(), args.open_now === true]),
+            TTL_SECONDS.places,
+            () => findLunchPlaces(args, env),
+          ),
+        );
       case "get_rain_forecast":
-        return JSON.stringify(await getRainForecast());
+        return JSON.stringify(
+          await cached(cacheKey("forecast", [FORECAST_AREA]), TTL_SECONDS.forecast, () =>
+            getRainForecast(),
+          ),
+        );
       case "get_bus_arrivals":
-        return JSON.stringify(await getBusArrivals(args));
+        return JSON.stringify(
+          await cached(
+            cacheKey("bus", [normaliseStopCode(args.stop_code)]),
+            TTL_SECONDS.bus,
+            () => getBusArrivals(args),
+          ),
+        );
       default:
         return JSON.stringify({ error: `Unknown tool: ${name}` });
     }

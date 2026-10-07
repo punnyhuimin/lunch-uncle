@@ -125,6 +125,8 @@ async function callModel(messages, env, sessionId) {
   }
 
   const data = await res.json();
+  // Log token use so cost and prompt-cache hits can be measured.
+  console.log("usage", JSON.stringify(data?.usage ?? null));
   const message = data?.choices?.[0]?.message;
   if (!message) {
     throw new Error(`LLM returned no message: ${JSON.stringify(data).slice(0, 500)}`);
