@@ -24,7 +24,8 @@ sequenceDiagram
         Worker->>LLM: chat completion + tool results
     end
     LLM-->>Worker: final reply
-    Worker-->>Browser: {reply}
+    Worker-->>Browser: {reply, messages}
+    Note over Browser: keeps messages (tool calls and results included) as history for the next turn
 ```
 
 ## Setup
@@ -34,15 +35,15 @@ sequenceDiagram
    ```sh
    npm install
    ```
-3. Create `.env` from `.env.example` and fill in your keys:
+3. Create `.dev.vars` from `.env.example` and fill in your keys:
    ```sh
-   cp .env.example .env
+   cp .env.example .dev.vars
    ```
    ```
    OPENCODE_API_KEY=your-key-here
    GOOGLE_PLACES_API_KEY=your-key-here
    ```
-4. Fill in the two `TODO` constants at the top of `src/loop.js`: `LLM_BASE_URL` and `LLM_MODEL`, for the OpenCode Go endpoint and model. The Go endpoint requires an `x-opencode-session` header, which `callModel` already sends.
+4. `LLM_BASE_URL` and `LLM_MODEL` at the top of `src/loop.js` are already set for the OpenCode Go endpoint. Change them only if you use a different OpenAI-compatible provider. The Go endpoint requires an `x-opencode-session` header, which `callModel` already sends.
 5. Start the dev server:
    ```sh
    npm run dev
@@ -55,7 +56,7 @@ sequenceDiagram
    npm run deploy
    ```
 
-Secrets never go in code or in `wrangler.toml`. Local development reads them from `.env`, which is gitignored; production reads them from Cloudflare secrets set with `wrangler secret put`.
+Secrets never go in code or in `wrangler.toml`. Local development reads them from `.dev.vars`, which is gitignored; production reads them from Cloudflare secrets set with `wrangler secret put`.
 
 ## Running tests
 
