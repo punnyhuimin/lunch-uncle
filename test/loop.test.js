@@ -1,3 +1,6 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { runLoop } from "../src/loop.js";
 
 test("runLoop still calls the model when GOOGLE_PLACES_API_KEY is missing", async () => {
   const realFetch = globalThis.fetch;
