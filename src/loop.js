@@ -1,15 +1,14 @@
-import { buildSystemPrompt } from "./prompt.js";
+import { buildSystemPrompt, buildTimeContext } from "./prompt.js";
 import { toolDefinitions, executeTool } from "./tools.js";
 
 // TODO: set the base URL and model for your OpenAI-compatible provider.
-const LLM_BASE_URL = "TODO";
-const LLM_MODEL = "TODO";
+const LLM_BASE_URL = "https://opencode.ai/zen/go/v1";
+const LLM_MODEL = "glm-5.3-flash";
 
 const LLM_TIMEOUT_MS = 20_000;
 const MAX_ROUNDS = 8;
 
 const FALLBACK_REPLY = "Just go Berseh Food Centre lah.";
-const FOOD_WORDS = /\b(eat|lunch|food|makan|hungry|restaurant|hawker)\b/i;
 
 /**
  * Run the agentic loop for one user turn.
@@ -22,7 +21,7 @@ const FOOD_WORDS = /\b(eat|lunch|food|makan|hungry|restaurant|hawker)\b/i;
  */
 export async function runLoop(history, message, env) {
   // If the Places key is missing, Uncle cannot search, so give a safe answer.
-  if (!env.GOOGLE_PLACES_API_KEY || FOOD_WORDS.test(message)) {
+  if (!env.GOOGLE_PLACES_API_KEY) {
     return finish(FALLBACK_REPLY, [
       { role: "user", content: message },
       { role: "assistant", content: FALLBACK_REPLY },
@@ -32,6 +31,7 @@ export async function runLoop(history, message, env) {
   const messages = [
     { role: "system", content: buildSystemPrompt() },
     ...history,
+    { role: "system", content: buildTimeContext() },
     { role: "user", content: message },
   ];
 
@@ -41,8 +41,7 @@ export async function runLoop(history, message, env) {
   // so the OpenCode Go endpoint can route and cache consistently.
   const sessionId = crypto.randomUUID();
 
-  let round = 0;
-  while (round < MAX_ROUNDS) {
+  for (let round = 0; round < MAX_ROUNDS; round++) {
     const assistant = await callModel(messages, env, sessionId);
     messages.push(assistant);
 
