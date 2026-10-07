@@ -77,8 +77,14 @@
         const data = await res.json();
         const reply = data.reply ?? data.error ?? "No reply.";
         thinking.textContent = reply;
-        history.push({ role: "user", content: message });
-        history.push({ role: "assistant", content: reply });
+        // Keep the whole turn, including tool calls and results, so follow-ups
+        // can use them without re-running the tools.
+        if (data.messages) {
+          history.push(...data.messages);
+        } else {
+          history.push({ role: "user", content: message });
+          history.push({ role: "assistant", content: reply });
+        }
       } catch (err) {
         thinking.textContent = "Cannot reach Uncle. Try again.";
       } finally {

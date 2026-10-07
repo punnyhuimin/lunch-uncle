@@ -11,14 +11,21 @@ const MAX_ROUNDS = 8;
 const FALLBACK_REPLY = "Just go Berseh Food Centre lah.";
 
 /**
- * Run the agentic loop for one user turn and return Uncle's reply.
+ * Run the agentic loop for one user turn.
  *
- * history is the prior conversation as OpenAI-style {role, content} messages.
+ * history is the prior conversation as OpenAI-style messages, including any
+ * assistant tool_calls and tool results from earlier turns.
+ *
+ * Returns { reply, messages }, where messages are the new messages from this
+ * turn (user, assistant, tool) for the client to send back as history.
  */
 export async function runLoop(history, message, env) {
   // If the Places key is missing, Uncle cannot search, so give a safe answer.
   if (!env.GOOGLE_PLACES_API_KEY) {
-    return FALLBACK_REPLY;
+    return finish(FALLBACK_REPLY, [
+      { role: "user", content: message },
+      { role: "assistant", content: FALLBACK_REPLY },
+    ]);
   }
 
   const messages = [
@@ -27,6 +34,8 @@ export async function runLoop(history, message, env) {
     { role: "system", content: buildTimeContext() },
     { role: "user", content: message },
   ];
+
+  const turnStart = messages.length - 1;
 
   // One session id per turn, shared by every model call in this loop run,
   // so the OpenCode Go endpoint can route and cache consistently.
@@ -38,7 +47,7 @@ export async function runLoop(history, message, env) {
 
     const toolCalls = assistant.tool_calls ?? [];
     if (toolCalls.length === 0) {
-      return assistant.content ?? "";
+      return finish(assistant.content ?? "", messages.slice(turnStart));
     }
 
     for (const call of toolCalls) {
@@ -53,7 +62,13 @@ export async function runLoop(history, message, env) {
     }
   }
 
-  return "Uncle tried too many times already. Ask something simpler.";
+  const giveUp = "Uncle tried too many times already. Ask something simpler.";
+  messages.push({ role: "assistant", content: giveUp });
+  return finish(giveUp, messages.slice(turnStart));
+}
+
+function finish(reply, messages) {
+  return { reply, messages };
 }
 
 async function callModel(messages, env, sessionId) {
