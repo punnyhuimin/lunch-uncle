@@ -80,3 +80,17 @@ test("formatPlaces reports open_now from currentOpeningHours", () => {
     [true, false, null],
   );
 });
+
+test("formatForecast does not throw when forecasts is missing", () => {
+  const result = formatForecast({ data: { items: [{}] } }, "Kallang");
+  assert.equal(result.forecast, "Unknown");
+});
+
+test("formatPlaces keeps a place that has no location", () => {
+  const [place] = formatPlaces([{ displayName: { text: "Mystery Stall" } }], {
+    latitude: 1.3115,
+    longitude: 103.8615,
+  });
+  assert.equal(place.name, "Mystery Stall");
+  assert.equal(place.distance_m, null);
+});
