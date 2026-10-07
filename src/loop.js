@@ -31,8 +31,7 @@ export async function runLoop(history, message, env) {
   // so the OpenCode Go endpoint can route and cache consistently.
   const sessionId = crypto.randomUUID();
 
-  let round = 0;
-  while (round < MAX_ROUNDS) {
+  for (let round = 0; round < MAX_ROUNDS; round++) {
     const assistant = await callModel(messages, env, sessionId);
     messages.push(assistant);
 
