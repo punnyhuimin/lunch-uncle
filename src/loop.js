@@ -8,8 +8,6 @@ const LLM_MODEL = "glm-5.3-flash";
 const LLM_TIMEOUT_MS = 20_000;
 const MAX_ROUNDS = 8;
 
-const FALLBACK_REPLY = "Just go Berseh Food Centre lah.";
-
 /**
  * Run the agentic loop for one user turn.
  *
@@ -20,14 +18,6 @@ const FALLBACK_REPLY = "Just go Berseh Food Centre lah.";
  * turn (user, assistant, tool) for the client to send back as history.
  */
 export async function runLoop(history, message, env) {
-  // If the Places key is missing, Uncle cannot search, so give a safe answer.
-  if (!env.GOOGLE_PLACES_API_KEY) {
-    return finish(FALLBACK_REPLY, [
-      { role: "user", content: message },
-      { role: "assistant", content: FALLBACK_REPLY },
-    ]);
-  }
-
   const messages = [
     { role: "system", content: buildSystemPrompt() },
     ...history,
